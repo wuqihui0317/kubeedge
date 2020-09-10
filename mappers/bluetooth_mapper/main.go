@@ -18,6 +18,8 @@ package main
 
 import (
 	"flag"
+	"github.com/fsnotify/fsnotify"
+	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/watcher"
 	"os"
 
 	"github.com/spf13/pflag"
@@ -27,26 +29,55 @@ import (
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/controller"
 )
 
+var fileWatcher fsnotify.Watcher
+
 // main function
 func main() {
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+	for {
+		BleConfig := configuration.BLEConfig{}
+		// load config
+		err := BleConfig.Load()
+		if err != nil {
+			klog.Errorf("Error in loading configuration: %s", err)
+			os.Exit(1)
+		}
+		fileWatcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			klog.Errorf("Error in initing file watcher: %v", err)
+			os.Exit(1)
+		}
+		fileWatcher.Close()
 
-	BleConfig := configuration.BLEConfig{}
-	// load config
-	err := BleConfig.Load()
-	if err != nil {
-		klog.Errorf("Error in loading configuration: %s", err)
-		os.Exit(1)
+		err = fileWatcher.Add(configuration.ConfigMapPath)
+		if err != nil {
+			klog.Errorf("Error in adding configmap watcher: %v", err)
+			os.Exit(1)
+		}
+		go func() {
+			for {
+				select {
+				case ev := <-fileWatcher.Events:
+					{
+						klog.Info("%v, Configmap changed, begin to restart.", ev)
+						watcher.ConfigmapChanged <- struct{}{}
+						return
+					}
+				}
+			}
+		}()
+		bleController := controller.Config{
+			Watcher:       BleConfig.Watcher,
+			ActionManager: BleConfig.ActionManager,
+			Scheduler:     BleConfig.Scheduler,
+			Converter:     BleConfig.Converter,
+			Device:        BleConfig.Device,
+			Mqtt:          BleConfig.Mqtt,
+		}
+
+		bleController.Start()
+		klog.Info("reload configmap.")
 	}
-	bleController := controller.Config{
-		Watcher:       BleConfig.Watcher,
-		ActionManager: BleConfig.ActionManager,
-		Scheduler:     BleConfig.Scheduler,
-		Converter:     BleConfig.Converter,
-		Device:        BleConfig.Device,
-		Mqtt:          BleConfig.Mqtt,
-	}
-	bleController.Start()
 }

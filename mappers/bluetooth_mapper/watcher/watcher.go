@@ -31,6 +31,7 @@ import (
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/helper"
 )
 
+var ConfigmapChanged = make(chan struct{})
 var DeviceConnected = make(chan bool)
 var done = make(chan struct{})
 var deviceName string

@@ -72,7 +72,7 @@ func (schedule *Schedule) ExecuteSchedule(actionManager []actionmanager.Action, 
 			schedule.performScheduleOperation(actionManager, dataConverter, deviceID)
 		}
 	}
-	helper.ControllerWg.Done()
+	//helper.ControllerWg.Done()
 }
 
 // performScheduleOperation is responsible for performing the operations associated with the schedule

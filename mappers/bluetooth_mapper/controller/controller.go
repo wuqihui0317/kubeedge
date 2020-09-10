@@ -45,6 +45,8 @@ const (
 
 var topicMap = make(map[string]MQTT.MessageHandler)
 
+var stopCh = make(chan struct{})
+
 //Config contains the configuration used by the controller
 type Config struct {
 	Mqtt          configuration.Mqtt          `yaml:"mqtt"`
@@ -69,7 +71,7 @@ func (c *Config) Start() {
 	c.initTopicMap()
 	helper.MqttConnect(c.Mqtt.Mode, c.Mqtt.InternalServer, c.Mqtt.Server)
 	subscribeAllTopics()
-	helper.ControllerWg.Add(1)
+	//helper.ControllerWg.Add(1)
 	device, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		klog.Fatalf("Failed to open device, err: %s\n", err)
@@ -85,10 +87,12 @@ func (c *Config) Start() {
 	}
 
 	for _, schedule := range c.Scheduler.Schedules {
-		helper.ControllerWg.Add(1)
+		//helper.ControllerWg.Add(1)
 		go schedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID)
 	}
-	helper.ControllerWg.Wait()
+	//helper.ControllerWg.Wait()
+	<-watcher.ConfigmapChanged
+	klog.Info("Ending start function.")
 }
 
 //subscribeAllTopics subscribes to mqtt topics associated with mapper
@@ -139,7 +143,7 @@ func (c *Config) handleScheduleCreateMessage(client MQTT.Client, message MQTT.Me
 			klog.Infof("New Schedule: %v", newSchedule)
 		}
 		configuration.Config.Scheduler = c.Scheduler
-		helper.ControllerWg.Add(1)
+		//helper.ControllerWg.Add(1)
 		newSchedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID)
 	}
 }
