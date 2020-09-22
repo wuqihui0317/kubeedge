@@ -1,42 +1,80 @@
 {
-	"deviceInstances": [{
-        "id": "f81e1dce-8152-4f76-b673-d6728b46e395",
-        "name": "modbus-mock-instance-01",
-        "model": "modbus-mock-model",
-        "protocol": "modbus-tcp-01"
-    }],
-	"deviceModels": [{
-        "properties": [{
-            "name": "temperature",
-            "minimum": 0,
-            "maximum": 100,
-            "datatype": "int",
-            "accessMode": "rw"
-        }],
-        "name": "modbus-mock-model",
-        "description": null
-    }],
-	"propertyVisitors": [{
-        "visitorConfig": {
-            "index": 0,
-            "scale": 1.0,
-            "isRegisterSwap": true,
-            "register": "HoldingRegister",
-            "offset": 1,
-            "isSwap": false
+    "deviceInstances": [
+        {
+            "id": "noise-sensor-01",
+            "name": "noise-sensor-01",
+            "protocol": "modbus-noise-sensor-01",
+            "model": "noise-sensor",
+            "twins": [
+                {
+                    "propertyName": "noise",
+                    "desired": {
+                        "value": ""
+                    },
+                    "reported": {
+                        "value": ""
+                    }
+                }
+            ]
+        }
+    ],
+    "deviceModels": [
+        {
+            "name": "noise-sensor",
+            "properties": [
+                {
+                    "name": "noise",
+                    "dataType": "int",
+                    "description": "noise in degree celsius",
+                    "accessMode": "ReadOnly",
+                    "defaultValue": 0,
+                    "minimum": 0,
+                    "maximum": 1500,
+                    "unit": " 0.1db"
+                }
+            ]
+        }
+    ],
+    "propertyVisitors": [
+        {
+            "name": "noise",
+            "propertyName": "noise",
+            "modelName": "noise-sensor",
+            "protocol": "modbus",
+            "visitorConfig": {
+                "register": "HoldingRegister",
+                "offset": 4,
+                "limit": 1,
+                "scale": 1,
+                "isSwap": true,
+                "isRegisterSwap": true
+            }
+        }
+    ],
+    "protocols": [
+        {
+            "name": "bluetooth-sensor-tag-instance-01",
+            "protocol": "bluetooth",
+            "protocolConfig": {
+                "macAddress": "BC: 6A: 29:AE:CC: 96"
+            },
+            "protocolCommonConfig": null
         },
-        "propertyName": "temperature",
-        "modelName": "modbus-mock-model",
-        "protocol": "modbus-tcp",
-        "name": "temperature"
-    }],
-	"protocols": [{
-        "protocolConfig": {
-            "ip": "127.0.0.1",
-            "port": 5028,
-            "slaveID": 1
-        },
-        "protocol": "modbus-tcp",
-        "name": "modbus-tcp-01"
-    }]
+        {
+            "name": "modbus-noise-sensor-01",
+            "protocol": "modbus",
+            "protocolConfig": {
+                "slaveID": 1
+            },
+            "protocolCommonConfig": {
+                "com": {
+                    "serialPort": "1",
+                    "baudRate": 9600,
+                    "dataBits": 8,
+                    "parity": "none",
+                    "stopBits": 1
+                }
+            }
+        }
+    ]
 }

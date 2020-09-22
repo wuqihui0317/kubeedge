@@ -24,8 +24,8 @@ import (
 
 	"k8s.io/klog"
 
-	actionmanager "github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/action_manager"
-	dataconverter "github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/data_converter"
+	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/action_manager"
+	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/data_converter"
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/helper"
 )
 
@@ -78,11 +78,8 @@ func (schedule *Schedule) ExecuteSchedule(actionManager []actionmanager.Action, 
 // performScheduleOperation is responsible for performing the operations associated with the schedule
 func (schedule *Schedule) performScheduleOperation(actionManager []actionmanager.Action, dataConverter dataconverter.DataRead, deviceID string) {
 	var scheduleResult ScheduleResult
-	if schedule.Interval == 0 {
-		schedule.Interval = defaultEventFrequency
-	}
+	actionExists := false
 	for _, actionName := range schedule.Actions {
-		actionExists := false
 		for _, action := range actionManager {
 			if strings.EqualFold(action.Name, actionName) {
 				actionExists = true
@@ -94,9 +91,12 @@ func (schedule *Schedule) performScheduleOperation(actionManager []actionmanager
 				publishScheduleResult(scheduleResult, deviceID)
 			}
 		}
+		if schedule.Interval == 0 {
+			schedule.Interval = defaultEventFrequency
+		}
 		if !actionExists {
-			klog.Errorf("Action %s does not exist.", actionName)
-			continue
+			klog.Errorf("Action %s does not exist. Exiting from schedule !!!", actionName)
+			break
 		}
 		time.Sleep(time.Duration(time.Duration(schedule.Interval) * time.Millisecond))
 	}

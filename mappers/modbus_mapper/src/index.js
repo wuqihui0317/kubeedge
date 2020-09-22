@@ -183,7 +183,8 @@ async.series([
 
 let mqtt_client3;
 logger.info('start to watch dpl config');
-WatchFiles.watchChange(path.join(__dirname, 'dpl'), ()=>{
+// WatchFiles.watchChange(path.join(__dirname, 'dpl'), ()=>{
+WatchFiles.watchChange(path.join(path.resolve("./"), 'dpl'), ()=>{
     async.series([
         function(callback) {
             WatchFiles.loadDpl(options.dpl_name, (devInsMap, devModMap, devProMap, modVistrMap)=>{
@@ -277,6 +278,11 @@ function syncDeviceTwin(dt, key, protocol, actuals) {
         let visitor;
         if (typeof(protocol) != 'undefined') {
             modbusProtocolTransfer(protocol.protocol, (transferedProtocol)=>{
+                logger.info(JSON.stringify(devIns));
+                logger.info(JSON.stringify(modVistr))
+                logger.info(key)
+                let a = util.format('%s-%s-%s', devIns.get(key).model, property.name, transferedProtocol);
+                logger.info(a);
                 if (devIns.has(key) && modVistr.has(util.format('%s-%s-%s', devIns.get(key).model, property.name, transferedProtocol))) {
                     visitor = modVistr.get(util.format('%s-%s-%s', devIns.get(key).model, property.name, transferedProtocol));
                 } else {

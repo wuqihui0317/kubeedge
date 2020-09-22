@@ -22,20 +22,20 @@ import (
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/watcher"
 	"os"
 
-	"github.com/spf13/pflag"
-	"k8s.io/klog"
-
+	"fmt"
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/configuration"
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/controller"
+	"github.com/spf13/pflag"
+	"k8s.io/klog"
 )
-
-var fileWatcher fsnotify.Watcher
 
 // main function
 func main() {
+	fmt.Println("Bluetooth is starting")
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
+
 	for {
 		BleConfig := configuration.BLEConfig{}
 		// load config
@@ -49,7 +49,7 @@ func main() {
 			klog.Errorf("Error in initing file watcher: %v", err)
 			os.Exit(1)
 		}
-		fileWatcher.Close()
+		//fileWatcher.Close()
 
 		err = fileWatcher.Add(configuration.ConfigMapPath)
 		if err != nil {
@@ -76,8 +76,9 @@ func main() {
 			Device:        BleConfig.Device,
 			Mqtt:          BleConfig.Mqtt,
 		}
-
+		fmt.Println("-----------", BleConfig.Device)
 		bleController.Start()
-		klog.Info("reload configmap.")
+		fmt.Println("reload configmap.")
 	}
+
 }

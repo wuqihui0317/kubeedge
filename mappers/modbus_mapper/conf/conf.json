@@ -1,6 +1,6 @@
 {
-    "mqtt_port": {CONNECTOR_MQTT_PORT},
+    "mqtt_port": "{CONNECTOR_MQTT_PORT}",
     "mqtt_ip": "{CONNECTOR_MQTT_IP}",
-    "dpl_name": "{CONNECTOR_DPL_NAME}",
+    "dpl_name": "dpl/deviceProfile.json",
     "log_level": "info"
 }

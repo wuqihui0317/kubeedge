@@ -18,6 +18,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
@@ -44,8 +45,6 @@ const (
 )
 
 var topicMap = make(map[string]MQTT.MessageHandler)
-
-var stopCh = make(chan struct{})
 
 //Config contains the configuration used by the controller
 type Config struct {
@@ -79,7 +78,9 @@ func (c *Config) Start() {
 	}
 	go c.Watcher.Initiate(device, c.Device.Name, c.Device.ID, c.ActionManager.Actions, c.Converter)
 
+	fmt.Println("wait to connected")
 	<-watcher.DeviceConnected
+	fmt.Println("connected")
 	for _, action := range c.ActionManager.Actions {
 		if action.PerformImmediately {
 			action.PerformOperation(c.Converter.DataRead)
@@ -135,15 +136,16 @@ func (c *Config) handleScheduleCreateMessage(client MQTT.Client, message MQTT.Me
 			}
 		}
 		if scheduleExists {
+			c.Scheduler.Schedules = append(c.Scheduler.Schedules, newSchedule)
 			klog.Infof("Schedule: %s has been updated", newSchedule.Name)
 			klog.Infof("Updated Schedule: %v", newSchedule)
 		} else {
-			c.Scheduler.Schedules = append(c.Scheduler.Schedules, newSchedule)
 			klog.Infof("Schedule: %s has been added", newSchedule.Name)
 			klog.Infof("New Schedule: %v", newSchedule)
 		}
 		configuration.Config.Scheduler = c.Scheduler
-		//helper.ControllerWg.Add(1)
+		helper.ControllerWg.Add(1)
+		fmt.Println("c:handleScheduleCreateMessage add 1")
 		newSchedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID)
 	}
 }
@@ -191,10 +193,10 @@ func (c *Config) handleActionCreateMessage(client MQTT.Client, message MQTT.Mess
 			}
 		}
 		if actionExists {
+			c.ActionManager.Actions = append(c.ActionManager.Actions, newAction)
 			klog.Infof("Action: %s has been updated", newAction.Name)
 			klog.Infof("Updated Action: %v", newAction)
 		} else {
-			c.ActionManager.Actions = append(c.ActionManager.Actions, newAction)
 			klog.Infof("Action: %s has been added ", newAction.Name)
 			klog.Infof("New Action: %v", newAction)
 		}

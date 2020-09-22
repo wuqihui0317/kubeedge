@@ -38,7 +38,6 @@ var (
 var TwinResult DeviceTwinResult
 var Wg sync.WaitGroup
 var ControllerWg sync.WaitGroup
-var MainWg sync.WaitGroup
 var TwinAttributes []string
 
 var TokenClient Token
