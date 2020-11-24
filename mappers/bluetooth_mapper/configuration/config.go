@@ -90,7 +90,9 @@ type Mqtt struct {
 
 //Device structure contains the device specific configurations
 type Device struct {
-	ID   string `yaml:"id"`
+	//device name
+	ID string `yaml:"id"`
+	//devicemodel name
 	Name string `yaml:"name"`
 }
 
@@ -134,8 +136,16 @@ func (b *BLEConfig) Load() error {
 		action := actionmanager.Action{}
 		action.Name = actionConfig.Name
 		action.PerformImmediately = actionConfig.PerformImmediately
+		action.PropertyName = actionConfig.PropertyName
 
-		for _, propertyVisitor := range readConfigMap.PropertyVisitors {
+		propertyVisitors := []PropertyVisitor{}
+		for _, device := range readConfigMap.DeviceInstances {
+			for _, pv := range device.PropertyVisitors {
+				propertyVisitors = append(propertyVisitors, pv)
+			}
+		}
+
+		for _, propertyVisitor := range propertyVisitors {
 			if strings.EqualFold(propertyVisitor.ModelName, b.Device.Name) && strings.EqualFold(propertyVisitor.PropertyName, actionConfig.PropertyName) && strings.ToUpper(propertyVisitor.Protocol) == ProtocolName {
 				propertyVisitorBytes, err := json.Marshal(propertyVisitor.VisitorConfig)
 				if err != nil {

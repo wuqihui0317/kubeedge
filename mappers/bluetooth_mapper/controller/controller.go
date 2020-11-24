@@ -18,7 +18,9 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
+	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/paypal/gatt"
@@ -68,8 +70,9 @@ func (c *Config) initTopicMap() {
 func (c *Config) Start() {
 	c.initTopicMap()
 	helper.MqttConnect(c.Mqtt.Mode, c.Mqtt.InternalServer, c.Mqtt.Server)
+	helper.FluentbitMqttConnect()
 	subscribeAllTopics()
-	helper.ControllerWg.Add(1)
+	//helper.ControllerWg.Add(1)
 	device, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		klog.Fatalf("Failed to open device, err: %s\n", err)
@@ -77,7 +80,9 @@ func (c *Config) Start() {
 	}
 	go c.Watcher.Initiate(device, c.Device.Name, c.Device.ID, c.ActionManager.Actions, c.Converter)
 
+	fmt.Println("wait to connected")
 	<-watcher.DeviceConnected
+	fmt.Println("connected")
 	for _, action := range c.ActionManager.Actions {
 		if action.PerformImmediately {
 			action.PerformOperation(c.Converter.DataRead)
@@ -85,10 +90,14 @@ func (c *Config) Start() {
 	}
 
 	for _, schedule := range c.Scheduler.Schedules {
-		helper.ControllerWg.Add(1)
-		go schedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID)
+		//helper.ControllerWg.Add(1)
+		go schedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID, c.Device.Name)
 	}
-	helper.ControllerWg.Wait()
+	//helper.ControllerWg.Wait()
+	<-watcher.ConfigmapChanged
+	watcher.PublishDeviceStatus(c.Device.ID, "false")
+	klog.Info("Ending start function.")
+	time.Sleep(time.Duration(1000) * time.Millisecond)
 }
 
 //subscribeAllTopics subscribes to mqtt topics associated with mapper
@@ -131,16 +140,17 @@ func (c *Config) handleScheduleCreateMessage(client MQTT.Client, message MQTT.Me
 			}
 		}
 		if scheduleExists {
+			c.Scheduler.Schedules = append(c.Scheduler.Schedules, newSchedule)
 			klog.Infof("Schedule: %s has been updated", newSchedule.Name)
 			klog.Infof("Updated Schedule: %v", newSchedule)
 		} else {
-			c.Scheduler.Schedules = append(c.Scheduler.Schedules, newSchedule)
 			klog.Infof("Schedule: %s has been added", newSchedule.Name)
 			klog.Infof("New Schedule: %v", newSchedule)
 		}
 		configuration.Config.Scheduler = c.Scheduler
 		helper.ControllerWg.Add(1)
-		newSchedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID)
+		fmt.Println("c:handleScheduleCreateMessage add 1")
+		newSchedule.ExecuteSchedule(c.ActionManager.Actions, c.Converter.DataRead, c.Device.ID, c.Device.Name)
 	}
 }
 
@@ -187,10 +197,10 @@ func (c *Config) handleActionCreateMessage(client MQTT.Client, message MQTT.Mess
 			}
 		}
 		if actionExists {
+			c.ActionManager.Actions = append(c.ActionManager.Actions, newAction)
 			klog.Infof("Action: %s has been updated", newAction.Name)
 			klog.Infof("Updated Action: %v", newAction)
 		} else {
-			c.ActionManager.Actions = append(c.ActionManager.Actions, newAction)
 			klog.Infof("Action: %s has been added ", newAction.Name)
 			klog.Infof("New Action: %v", newAction)
 		}

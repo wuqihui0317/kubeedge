@@ -17,7 +17,9 @@ limitations under the License.
 package watcher
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -33,6 +35,7 @@ import (
 
 var DeviceConnected = make(chan bool)
 var done = make(chan struct{})
+var ConfigmapChanged = make(chan struct{})
 var deviceName string
 var deviceID string
 var actionManager []actionmanager.Action
@@ -61,9 +64,7 @@ func (w *Watcher) Initiate(device gatt.Device, nameOfDevice, idOfDevice string, 
 		gatt.PeripheralDisconnected(onPeripheralDisconnected),
 		gatt.PeripheralDiscovered(onPeripheralDiscovered),
 	)
-	if err := device.Init(onStateChanged); err != nil {
-		klog.Errorf("Init device failed with error: %v", err)
-	}
+	device.Init(onStateChanged)
 	<-done
 	klog.Infof("Watcher Done")
 }
@@ -116,7 +117,10 @@ func (w *Watcher) onPeripheralConnected(p gatt.Peripheral, err error) {
 		}
 		actionmanager.CharacteristicsList = append(actionmanager.CharacteristicsList, cs...)
 	}
+	klog.Info("DeviceConnected <- true")
 	DeviceConnected <- true
+	PublishDeviceStatus(deviceID, "true")
+
 	for {
 		newWatcher := &Watcher{}
 		if !reflect.DeepEqual(w, newWatcher) {
@@ -128,16 +132,33 @@ func (w *Watcher) onPeripheralConnected(p gatt.Peripheral, err error) {
 	}
 }
 
+//update cloud status,when device online
+func PublishDeviceStatus(deviceID string, bool string) {
+	ToCloudTopic := fmt.Sprintf("$ke/events/device/%s/data/update", deviceID)
+	updatedActualValues := make(map[string]string)
+	updatedActualValues["Online"] = bool
+	ToCloudMessage := helper.CreateActualUpdateMessage(updatedActualValues)
+	ToCloudBody, err := json.Marshal(ToCloudMessage)
+	if err != nil {
+		klog.Errorf("Error: %v", err)
+	}
+	helper.TokenClient = helper.Client.Publish(ToCloudTopic, 0, false, ToCloudBody)
+	if helper.TokenClient.Wait() && helper.TokenClient.Error() != nil {
+		klog.Errorf("client.publish() Error in device twin get  is %s", helper.TokenClient.Error())
+	}
+}
+
 //EquateTwinValue is responsible for equating the actual state of the device to the expected state that has been set and syncing back the result to the cloud
 func (w *Watcher) EquateTwinValue(deviceID string) error {
 	var updateMessage helper.DeviceTwinUpdate
 	updatedActualValues := make(map[string]string)
 	helper.Wg.Add(1)
-	klog.Infof("Watching on the device twin values for device with deviceID: %s", deviceID)
+	//klog.Infof("Watching on the device twin values for device with deviceID: %s", deviceID)
 	go helper.TwinSubscribe(deviceID)
 	helper.GetTwin(updateMessage, deviceID)
 	helper.Wg.Wait()
 	twinUpdated := false
+
 	for _, twinAttribute := range w.DeviceTwinAttributes {
 		if helper.TwinResult.Twin[twinAttribute.Name] != nil {
 			if helper.TwinResult.Twin[twinAttribute.Name].Expected != nil && ((helper.TwinResult.Twin[twinAttribute.Name].Actual == nil) && helper.TwinResult.Twin[twinAttribute.Name].Expected != nil || (*helper.TwinResult.Twin[twinAttribute.Name].Expected.Value != *helper.TwinResult.Twin[twinAttribute.Name].Actual.Value)) {
@@ -180,13 +201,15 @@ func (w *Watcher) EquateTwinValue(deviceID string) error {
 		}
 	}
 	if twinUpdated {
+		// TODO excepted为空时，twinUpdate永远为false，下面代码无法执行，cloud的status无法更新;schedule.go 121 直接去发消息是个暂时的方法
 		updateMessage = helper.CreateActualUpdateMessage(updatedActualValues)
 		helper.ChangeTwinValue(updateMessage, deviceID)
 		time.Sleep(2 * time.Second)
 		klog.Infof("Syncing to cloud.....")
 		helper.SyncToCloud(updateMessage, deviceID)
 	} else {
-		klog.Infof("Actual values are in sync with Expected value")
+		//klog.Infof("Actual values are in sync with Expected value")
+		time.Sleep(2 * time.Second)
 	}
 	return nil
 }

@@ -43,6 +43,7 @@ var TwinAttributes []string
 var TokenClient Token
 var ClientOpts *MQTT.ClientOptions
 var Client MQTT.Client
+var FluentbitClient MQTT.Client
 
 //Token interface to validate the MQTT connection.
 type Token interface {
@@ -134,6 +135,28 @@ func MqttConnect(mqttMode int, mqttInternalServer, mqttServer string) {
 	}
 }
 
+//define a function for the default message handler
+var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
+	klog.Infof("TOPIC: %sn", msg.Topic())
+	klog.Infof("MSG: %sn", msg.Payload())
+}
+
+//FluentbitMqttConnect
+func FluentbitMqttConnect() {
+	//create a ClientOptions struct setting the broker address, clientid, turn
+	//off trace output and set the default message handler
+	opts := MQTT.NewClientOptions().AddBroker("tcp://10.1.11.47:1885")
+	opts.SetClientID("fluentbit")
+	opts.SetDefaultPublishHandler(f)
+
+	//create and start a client using the above ClientOptions
+	FluentbitClient = MQTT.NewClient(opts)
+	if token := FluentbitClient.Connect(); token.Wait() && token.Error() != nil {
+		klog.Info(token.Error())
+	}
+
+}
+
 //ChangeTwinValue sends the updated twin value to the edge through the MQTT broker
 func ChangeTwinValue(updateMessage DeviceTwinUpdate, deviceID string) {
 	twinUpdateBody, err := json.Marshal(updateMessage)
@@ -211,5 +234,12 @@ func CreateActualUpdateMessage(updatedTwinAttributes map[string]string) DeviceTw
 			deviceTwinUpdateMessage.Twin[twinAttribute].Metadata = &TypeMetadata{Type: "Updated"}
 		}
 	}
+	return deviceTwinUpdateMessage
+}
+
+func CreateActualUpdateMessage2(actualValue string) DeviceTwinUpdate {
+	var deviceTwinUpdateMessage DeviceTwinUpdate
+	actualMap := map[string]*MsgTwin{"temperature": {Actual: &TwinValue{Value: &actualValue}, Metadata: &TypeMetadata{Type: "Updated"}}}
+	deviceTwinUpdateMessage.Twin = actualMap
 	return deviceTwinUpdateMessage
 }

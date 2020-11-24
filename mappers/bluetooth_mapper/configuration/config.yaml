@@ -1,5 +1,5 @@
 mqtt:
-  mode: 0       # 0 -internal mqtt broker  1 - external mqtt broker
+  mode: 1       # 0 -internal mqtt broker  1 - external mqtt broker
   server: tcp://127.0.0.1:1883 # external mqtt broker url.
   internal-server: tcp://127.0.0.1:1884 # internal mqtt broker url.
 device-model-name: cc2650-sensortag
@@ -27,14 +27,14 @@ scheduler:
   schedules:
     - name: temperature
       interval: 3000
-      occurrence-limit: 10            # if it is 0, then the event will execute infinitely
+      occurrence-limit: 0            # if it is 0, then the event will execute infinitely
       actions:
         - IRTemperatureData          # Action name defined in the action-manager section
 watcher:
   device-twin-attributes :
     - device-property-name: io-data                     # the twin attribute name defined while creating device
       actions:                         # list of action names, defined in the action-manager section, to be executed on the device
-        - IOConfigurationInitialize
-        - IODataInitialize
-        - IOConfiguration
-        - IOData
+        #- IOConfigurationInitialize
+        #- IODataInitialize
+        #- IOConfiguration
+        #- IOData

@@ -56,6 +56,8 @@ type Action struct {
 	Name string `yaml:"name" json:"name"`
 	// Operation specifies the operation to be performed for this action
 	Operation Operation `yaml:"operation" json:"operation"`
+	//PropertyName is the name of the property defined in the device CRD
+	PropertyName string `yaml:"device-property-name" json:"device-property-name"`
 }
 
 //ActionManager is a structure that contains a list of actions
@@ -65,7 +67,7 @@ type ActionManager struct {
 
 //PerformOperation executes the operation
 func (action *Action) PerformOperation(readConverter ...dataconverter.DataRead) {
-	klog.Infof("Performing operations associated with action:  %s", action.Name)
+	//klog.Infof("Performing operations associated with action:  %s", action.Name)
 	characteristic, err := FindCharacteristic(action.Operation.CharacteristicUUID)
 	if err != nil {
 		klog.Errorf("Error in finding characteristics: %s", err)
@@ -87,7 +89,6 @@ func (action *Action) PerformOperation(readConverter ...dataconverter.DataRead) 
 		if !converted {
 			action.Operation.Value = readValue
 		}
-		klog.Info("Read Successful")
 	} else if strings.ToUpper(action.Operation.Action) == ActionWrite {
 		if action.Operation.Value == nil {
 			klog.Errorf("Please provide a value to be written")

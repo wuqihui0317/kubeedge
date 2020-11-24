@@ -17,15 +17,14 @@ limitations under the License.
 package scheduler
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
 
-	actionmanager "github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/action_manager"
-	dataconverter "github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/data_converter"
+	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/action_manager"
+	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/data_converter"
 	"github.com/kubeedge/kubeedge/mappers/bluetooth_mapper/helper"
 )
 
@@ -61,57 +60,80 @@ type ScheduleResult struct {
 }
 
 // ExecuteSchedule is responsible for scheduling the operations
-func (schedule *Schedule) ExecuteSchedule(actionManager []actionmanager.Action, dataConverter dataconverter.DataRead, deviceID string) {
+func (schedule *Schedule) ExecuteSchedule(actionManager []actionmanager.Action, dataConverter dataconverter.DataRead, deviceID string, deviceName string) {
 	klog.Infof("Executing schedule: %s", schedule.Name)
 	if schedule.OccurrenceLimit != 0 {
+		klog.Infof("Perform time is %s", schedule.OccurrenceLimit)
 		for iteration := 0; iteration < schedule.OccurrenceLimit; iteration++ {
-			schedule.performScheduleOperation(actionManager, dataConverter, deviceID)
+			schedule.performScheduleOperation(actionManager, dataConverter, deviceID, deviceName)
 		}
 	} else {
+		klog.Infof("%s perform infinitely.", schedule.Name)
 		for {
-			schedule.performScheduleOperation(actionManager, dataConverter, deviceID)
+			schedule.performScheduleOperation(actionManager, dataConverter, deviceID, deviceName)
 		}
 	}
-	helper.ControllerWg.Done()
+	//helper.ControllerWg.Done()
 }
 
 // performScheduleOperation is responsible for performing the operations associated with the schedule
-func (schedule *Schedule) performScheduleOperation(actionManager []actionmanager.Action, dataConverter dataconverter.DataRead, deviceID string) {
+func (schedule *Schedule) performScheduleOperation(actionManager []actionmanager.Action, dataConverter dataconverter.DataRead, deviceID string, deviceName string) {
 	var scheduleResult ScheduleResult
-	if schedule.Interval == 0 {
-		schedule.Interval = defaultEventFrequency
-	}
+	actionExists := false
 	for _, actionName := range schedule.Actions {
-		actionExists := false
 		for _, action := range actionManager {
 			if strings.EqualFold(action.Name, actionName) {
 				actionExists = true
-				klog.Infof("Performing scheduled operation: %s", action.Name)
+				//klog.Infof("Performing scheduled operation: %s", action.Name)
 				action.PerformOperation(dataConverter)
 				scheduleResult.EventName = actionName
 				scheduleResult.TimeStamp = time.Now().UnixNano() / 1e6
 				scheduleResult.EventResult = fmt.Sprintf("%s", action.Operation.Value)
-				publishScheduleResult(scheduleResult, deviceID)
+				publishScheduleResult(scheduleResult, deviceID, action.PropertyName, deviceName)
 			}
 		}
-		if !actionExists {
-			klog.Errorf("Action %s does not exist.", actionName)
-			continue
+		if schedule.Interval == 0 {
+			schedule.Interval = defaultEventFrequency
 		}
-		time.Sleep(time.Duration(time.Duration(schedule.Interval) * time.Millisecond))
+		if !actionExists {
+			klog.Errorf("Action %s does not exist. Exiting from schedule !!!", actionName)
+			break
+		}
+		time.Sleep(time.Duration(3000) * time.Millisecond)
 	}
 }
 
 //publishScheduleResult publishes the telemetry data on the given MQTT topic
-func publishScheduleResult(scheduleResult ScheduleResult, deviceID string) {
-	scheduleResultTopic := MapperTopicPrefix + deviceID + SchedulerResultSuffix
-	klog.Infof("Publishing schedule: %s result on topic: %s", scheduleResult.EventName, scheduleResultTopic)
-	scheduleResultBody, err := json.Marshal(scheduleResult)
-	if err != nil {
-		klog.Errorf("Error: %s", err)
-	}
-	helper.TokenClient = helper.Client.Publish(scheduleResultTopic, 0, false, scheduleResultBody)
+func publishScheduleResult(scheduleResult ScheduleResult, deviceID string, propertyName string, deviceName string) {
+	//scheduleResultTopic := MapperTopicPrefix + deviceID + SchedulerResultSuffix
+	////klog.Infof("Publishing schedule: %s result on topic: %s", scheduleResult.EventName, scheduleResultTopic)
+	//scheduleResultBody, err := json.Marshal(scheduleResult)
+	//if err != nil {
+	//	klog.Errorf("Error: %s", err)
+	//}
+	//helper.TokenClient = helper.Client.Publish(scheduleResultTopic, 0, false, scheduleResultBody)
+	//if helper.TokenClient.Wait() && helper.TokenClient.Error() != nil {
+	//	klog.Errorf("client.publish() Error in device twin get  is %s", helper.TokenClient.Error())
+	//}
+
+	//ToCloudTopic := "$hw/events/device/sensor-tag-instance-01/twin/update"
+	//ToCloudMessage := helper.CreateActualUpdateMessage2(scheduleResult.EventResult)
+	//ToCloudBody, err := json.Marshal(ToCloudMessage)
+	//if err != nil {
+	//	klog.Errorf("Error: %v", err)
+	//}
+	//helper.TokenClient = helper.Client.Publish(ToCloudTopic, 0, false, ToCloudBody)
+	//if helper.TokenClient.Wait() && helper.TokenClient.Error() != nil {
+	//	klog.Errorf("client.publish() Error in device twin get  is %s", helper.TokenClient.Error())
+	//}
+
+	text := fmt.Sprintf("{\"__name__\": \"%s\",\"deviceID\": \"%s\",\"%s\": %s}",
+		strings.Replace(strings.Replace(deviceName, "-", "_", -1), ".", "_", -1),
+		strings.Replace(strings.Replace(deviceID, "-", "_", -1), ".", "_", -1), propertyName, scheduleResult.EventResult)
+	klog.Info(text)
+	helper.TokenClient = helper.FluentbitClient.Publish("toFluentbit", 0, false, text)
 	if helper.TokenClient.Wait() && helper.TokenClient.Error() != nil {
-		klog.Errorf("client.publish() Error in device twin get  is %s", helper.TokenClient.Error())
+		klog.Errorf("client.publish() Error in device twin get is %s", helper.TokenClient.Error())
 	}
+
 }

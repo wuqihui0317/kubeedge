@@ -31,18 +31,18 @@ const (
 
 // DeviceProfile is structure to store in configMap
 type DeviceProfile struct {
-	DeviceInstances  []DeviceInstance  `json:"deviceInstances,omitempty"`
-	DeviceModels     []DeviceModel     `json:"deviceModels,omitempty"`
-	Protocols        []Protocol        `json:"protocols,omitempty"`
-	PropertyVisitors []PropertyVisitor `json:"propertyVisitors,omitempty"`
+	DeviceInstances []DeviceInstance `json:"deviceInstances,omitempty"`
+	DeviceModels    []DeviceModel    `json:"deviceModels,omitempty"`
+	Protocols       []Protocol       `json:"protocols,omitempty"`
 }
 
 // DeviceInstance is structure to store device in deviceProfile.json in configmap
 type DeviceInstance struct {
-	ID       string `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-	Model    string `json:"model,omitempty"`
+	ID               string            `json:"id,omitempty"`
+	Name             string            `json:"name,omitempty"`
+	Protocol         string            `json:"protocol,omitempty"`
+	Model            string            `json:"model,omitempty"`
+	PropertyVisitors []PropertyVisitor `json:"propertyVisitors,omitempty"`
 }
 
 // DeviceModel is structure to store deviceModel in deviceProfile.json in configmap
